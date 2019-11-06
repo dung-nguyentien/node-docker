@@ -1,0 +1,81 @@
+version: '2'
+
+services:
+
+    applications:
+        image: tianon/true
+        volumes:
+            - ${APPLICATION}:/var/www
+
+    ### Nginx setup
+    nginx:
+        container_name: ${PROJECT_NAME}_nginx
+        build:
+            context: ./nginx
+        volumes_from:
+          - applications
+        volumes:
+          - ${NGINX_HOST_LOG_PATH}:/var/log/nginx
+          - ${NGINX_SITES_PATH}:/etc/nginx/sites-available
+        ports:
+          - "${NGINX_HOST_HTTP_PORT}:80"
+          - "${NGINX_HOST_HTTPS_PORT}:443"
+        networks:
+          - frontend
+          - backend
+
+    ### Postgres
+    postgres:
+      container_name: ${PROJECT_NAME}_postgres
+      build: ./postgres
+      volumes:
+        - ${DATA_SAVE_PATH}/postgres:/var/lib/postgresql/data
+      ports:
+        - "${POSTGRES_PORT}:5432"
+      environment:
+        - POSTGRES_DB=${POSTGRES_DB}
+        - POSTGRES_USER=${POSTGRES_USER}
+        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      networks:
+        - backend
+        - frontend
+
+    ### Redis
+    redis:
+      container_name: ${PROJECT_NAME}_redis
+      build: ./redis
+      volumes:
+        - ${DATA_SAVE_PATH}/redis:/data
+      ports:
+        - "${REDIS_PORT}:6379"
+      networks:
+        - backend
+
+    workspace:
+      container_name: ${PROJECT_NAME}_workspace
+      build: ./workspace
+      volumes_from:
+          - applications
+      depends_on:
+          - redis
+          - postgres
+          - nginx
+      ports:
+          - "2009:2009"
+      networks:
+          - backend
+          - frontend
+      tty: true
+      restart: always
+
+### Networks setup
+networks:  
+    frontend:
+      driver: "bridge"
+    backend:
+      driver: "bridge"
+
+### Volumes Setup #############################################
+volumes:
+  postgres:
+    driver: "local"
